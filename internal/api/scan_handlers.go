@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/wyw14/cry-103/internal/correlation"
+	"github.com/wyw14/cry-103/internal/otdr"
 )
 
 func (s *Server) startScan(writer http.ResponseWriter, request *http.Request) {
@@ -33,10 +35,28 @@ func (s *Server) startScan(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	if err := s.services.Persist("otdr-scan", trace.ID, trace); err != nil {
-		writeError(writer, http.StatusInternalServerError, err)
+		writeJSON(writer, http.StatusInternalServerError, err)
 		return
 	}
+	s.projectScan(trace)
 	writeJSON(writer, http.StatusCreated, trace)
+}
+
+// projectScan feeds a completed OTDR scan into the correlation engine.
+func (s *Server) projectScan(trace otdr.Trace) {
+	if s.services.Correlation == nil {
+		return
+	}
+	stationID := "east"
+	if len(trace.Chunks) > 0 && trace.Chunks[0].StationID != "" {
+		stationID = trace.Chunks[0].StationID
+	}
+	_, _ = s.services.Correlation.Observe(correlation.Event{
+		ID: s.services.IDs.New("scan-event"), Type: correlation.EventOTDRScan,
+		SpanID: trace.SpanID, Generation: trace.Generation, SourceID: stationID,
+		RefID: trace.ID, DistanceKM: trace.Location.DistanceKM,
+		Confidence: trace.Location.Confidence, ObservedAt: trace.CompletedAt.UTC(),
+	})
 }
 
 func (s *Server) getSpan(writer http.ResponseWriter, request *http.Request) {

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/wyw14/cry-103/internal/correlation"
 	"github.com/wyw14/cry-103/internal/feed"
 	"github.com/wyw14/cry-103/internal/incident"
 	"github.com/wyw14/cry-103/internal/landing"
@@ -57,6 +58,13 @@ func testServer(t *testing.T) *Server {
 	projector := repeater.NewHealthProjector(lifecycle, 85)
 	projector.Register(repeaterAsset)
 	repository := telemetry.NewRepository()
+	correlationEngine, err := correlation.NewEngine(ids, clock.Now, correlation.Config{Window: 5 * time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repeaterLines := map[string]string{"R07": "S3"}
+	opticalProjector := correlation.NewOpticalProjector(
+		correlationEngine, registry, ids, clock.Now, repeaterLines, correlation.DefaultOpticalAlarmDBm)
 	acceptance := repair.NewAcceptanceService(switchover.NewRestorer(drainer, activator, registry, ids, clock.Now), clock.Now)
 	acceptance.Register("S3", target, path)
 	services := &Services{
@@ -66,8 +74,9 @@ func testServer(t *testing.T) *Server {
 		OTDR:        otdr.NewSessionService(registry, landing.NewScanner(registry, 0), ids, clock.Now),
 		Switchovers: switchover.NewSessionService(drainer, activator, ids, clock.Now, time.Second),
 		Permits:     permitService, Receipts: receipts, Acceptance: acceptance,
-		Telemetry: telemetry.NewIngestor(repository, clock.Now, projector), TelemetryRepository: repository,
-		Admission: incident.NewAdmissionService(telemetry.NewMuteManager(clock.Now)),
+		Telemetry: telemetry.NewIngestor(repository, clock.Now, projector, opticalProjector), TelemetryRepository: repository,
+		Admission:   incident.NewAdmissionService(telemetry.NewMuteManager(clock.Now)),
+		Correlation: correlationEngine, RepeaterLines: repeaterLines,
 	}
 	return NewServer(services)
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/wyw14/cry-103/internal/api"
+	"github.com/wyw14/cry-103/internal/correlation"
 	"github.com/wyw14/cry-103/internal/feed"
 	"github.com/wyw14/cry-103/internal/incident"
 	"github.com/wyw14/cry-103/internal/landing"
@@ -61,7 +62,14 @@ func buildServices(cfg config) (*api.Services, error) {
 		return nil, err
 	}
 	healthProjector.Register(repeaterR07)
-	ingestor := telemetry.NewIngestor(telemetryRepository, now, healthProjector)
+	correlationEngine, err := correlation.NewEngine(ids, now, correlation.Config{Window: 5 * time.Minute})
+	if err != nil {
+		return nil, err
+	}
+	repeaterLines := map[string]string{"R07": "S3"}
+	opticalProjector := correlation.NewOpticalProjector(
+		correlationEngine, topologies, ids, now, repeaterLines, correlation.DefaultOpticalAlarmDBm)
+	ingestor := telemetry.NewIngestor(telemetryRepository, now, healthProjector, opticalProjector)
 
 	scanner := landing.NewScanner(topologies, 2*time.Millisecond)
 	otdrService := otdr.NewSessionService(topologies, scanner, ids, now)
@@ -119,7 +127,9 @@ func buildServices(cfg config) (*api.Services, error) {
 		Repeaters: map[string]*repeater.Repeater{"R07": repeaterR07}, Topology: topologies,
 		OTDR: otdrService, Switchovers: switchovers, Permits: permits, Receipts: receipts,
 		Acceptance: acceptance, Telemetry: ingestor, TelemetryRepository: telemetryRepository, Admission: admission,
-		Classifier: incident.NewClassifier(), Correlator: otdr.NewCorrelator(), Health: health, Station: station,
+		Classifier: incident.NewClassifier(), Correlator: otdr.NewCorrelator(),
+		Correlation: correlationEngine, RepeaterLines: repeaterLines,
+		Health: health, Station: station,
 		WetPlantTests: wetPlantTests, Ramps: ramps, Assets: assets,
 		RepeaterHealth: healthProjector, Actuator: actuator,
 		Tests: make(map[string]*repair.TestSession), Incidents: make(map[string]*incident.Incident),

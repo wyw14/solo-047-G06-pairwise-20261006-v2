@@ -20,6 +20,10 @@ func NewServer(services *Services) *Server {
 	router.Route("/api", func(r chi.Router) {
 		r.Get("/system/status", server.systemStatus)
 		r.Get("/events", server.listEvents)
+		r.Get("/fault-cases", server.listFaultCases)
+		r.Get("/fault-cases/{id}", server.getFaultCase)
+		r.Post("/fault-cases/{id}/resolve", server.resolveFaultCase)
+		r.Post("/spans/{id}/repair-events", server.recordRepairEvent)
 		r.Get("/topology/{id}", server.getTopology)
 		r.Get("/otdr-scans", server.listScans)
 		r.Get("/otdr-scans/{id}", server.getScan)

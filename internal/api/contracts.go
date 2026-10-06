@@ -63,7 +63,8 @@ type ResetRequest struct {
 }
 
 type AlarmRequest struct {
-	Kind string `json:"kind"`
+	Kind     string `json:"kind"`
+	SourceID string `json:"source_id"`
 }
 
 type TestRequest struct {
@@ -76,4 +77,16 @@ type IncidentRequest struct {
 	TraceID      string  `json:"trace_id"`
 	DistanceKM   float64 `json:"distance_km"`
 	RequiresPeer bool    `json:"requires_peer"`
+}
+
+type RepairEventRequest struct {
+	Action     string  `json:"action"`
+	SourceID   string  `json:"source_id"`
+	Generation uint64  `json:"generation"`
+	DistanceKM float64 `json:"distance_km"`
+	Detail     string  `json:"detail"`
+}
+
+type ResolveCaseRequest struct {
+	Resolution string `json:"resolution"`
 }

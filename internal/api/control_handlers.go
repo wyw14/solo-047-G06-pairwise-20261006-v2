@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/wyw14/cry-103/internal/correlation"
 	"github.com/wyw14/cry-103/internal/incident"
 	"github.com/wyw14/cry-103/internal/otdr"
 	"github.com/wyw14/cry-103/internal/repeater"
@@ -58,12 +59,40 @@ func (s *Server) admitAlarm(writer http.ResponseWriter, request *http.Request) {
 		writeError(writer, http.StatusBadRequest, err)
 		return
 	}
-	alarm := incident.Alarm{ID: s.services.IDs.New("alarm"), SpanID: spanID, Kind: input.Kind, ObservedAt: s.services.Clock.Now()}
+	at := s.services.Clock.Now()
+	alarm := incident.Alarm{ID: s.services.IDs.New("alarm"), SpanID: spanID, Kind: input.Kind, ObservedAt: at}
 	if !s.services.Admission.Accept(alarm) {
 		writeJSON(writer, http.StatusAccepted, map[string]any{"admitted": false, "alarm": alarm})
 		return
 	}
+	s.projectAlarm(alarm, input.SourceID, at)
 	writeJSON(writer, http.StatusCreated, map[string]any{"admitted": true, "alarm": alarm})
+}
+
+// projectAlarm feeds an admitted alarm into the multi-source correlation
+// engine. Failures of the projection never reject the alarm: correlation is a
+// read-side aggregation of the canonical admission record.
+func (s *Server) projectAlarm(alarm incident.Alarm, sourceID string, at time.Time) {
+	engine := s.services.Correlation
+	if engine == nil {
+		return
+	}
+	snapshot, err := s.services.Topology.Snapshot(alarm.SpanID)
+	if err != nil {
+		return
+	}
+	if sourceID == "" {
+		sourceID = "line-supervision"
+	}
+	if _, err := engine.Observe(correlation.Event{
+		ID: s.services.IDs.New("alarm-event"), Type: correlation.EventRepeaterAlarm,
+		SpanID: alarm.SpanID, Generation: snapshot.Generation, SourceID: sourceID,
+		RefID: alarm.ID, Severity: correlation.SeverityAlarm,
+		DedupKey: sourceID + ":" + alarm.Kind, Detail: alarm.Kind, ObservedAt: at.UTC(),
+	}); err != nil {
+		// The alarm remains admitted even if the read side rejects it.
+		return
+	}
 }
 
 func (s *Server) listAlarms(writer http.ResponseWriter, request *http.Request) {

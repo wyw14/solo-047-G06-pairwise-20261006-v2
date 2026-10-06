@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wyw14/cry-103/internal/correlation"
 	"github.com/wyw14/cry-103/internal/feed"
 	"github.com/wyw14/cry-103/internal/incident"
 	"github.com/wyw14/cry-103/internal/landing"
@@ -39,16 +40,20 @@ type Services struct {
 	Admission           *incident.AdmissionService
 	Classifier          *incident.Classifier
 	Correlator          *otdr.Correlator
-	Health              *landing.HealthService
-	Station             *landing.Station
-	WetPlantTests       *repair.TestService
-	Ramps               *repeater.RampController
-	Assets              *repair.Assets
-	RepeaterHealth      *repeater.HealthProjector
-	Actuator            *feed.Actuator
-	Tests               map[string]*repair.TestSession
-	Incidents           map[string]*incident.Incident
-	mu                  sync.RWMutex
+	Correlation         *correlation.Engine
+	// RepeaterLines maps a repeater asset to the span (line) it serves so
+	// telemetry can be correlated onto the right fault case.
+	RepeaterLines  map[string]string
+	Health         *landing.HealthService
+	Station        *landing.Station
+	WetPlantTests  *repair.TestService
+	Ramps          *repeater.RampController
+	Assets         *repair.Assets
+	RepeaterHealth *repeater.HealthProjector
+	Actuator       *feed.Actuator
+	Tests          map[string]*repair.TestSession
+	Incidents      map[string]*incident.Incident
+	mu             sync.RWMutex
 }
 
 func (s *Services) Span(id string) (*span.Span, error) {
