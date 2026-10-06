@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wyw14/cry-103/internal/correlation"
 	"github.com/wyw14/cry-103/internal/feed"
 	"github.com/wyw14/cry-103/internal/incident"
 	"github.com/wyw14/cry-103/internal/landing"
@@ -39,6 +40,7 @@ type Services struct {
 	Admission           *incident.AdmissionService
 	Classifier          *incident.Classifier
 	Correlator          *otdr.Correlator
+	Correlation         *correlation.Engine
 	Health              *landing.HealthService
 	Station             *landing.Station
 	WetPlantTests       *repair.TestService

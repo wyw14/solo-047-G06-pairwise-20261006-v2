@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/wyw14/cry-103/internal/api"
+	"github.com/wyw14/cry-103/internal/correlation"
 	"github.com/wyw14/cry-103/internal/feed"
 	"github.com/wyw14/cry-103/internal/incident"
 	"github.com/wyw14/cry-103/internal/landing"
@@ -113,6 +114,13 @@ func buildServices(cfg config) (*api.Services, error) {
 	ramps := repeater.NewRampController(actuator, telemetryRepository, telemetry.StabilityWindow{MinimumSamples: 2, MaximumSpread: 1.5, MinimumPeriod: time.Second}, checkpoints, now)
 	wetPlantTests := repair.NewTestService(mutes, ids, now, 30*time.Second)
 
+	correlationEngine, err := correlation.NewEngine(ids, now, correlation.Config{
+		Window: 15 * time.Minute, OTDRToleranceKM: 2,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return &api.Services{
 		Clock: clock, IDs: ids, Journal: journal,
 		Spans: map[string]*span.Span{"S3": spanS3}, Routes: map[string]*route.Route{"R-S3": routeS3},
@@ -121,7 +129,7 @@ func buildServices(cfg config) (*api.Services, error) {
 		Acceptance: acceptance, Telemetry: ingestor, TelemetryRepository: telemetryRepository, Admission: admission,
 		Classifier: incident.NewClassifier(), Correlator: otdr.NewCorrelator(), Health: health, Station: station,
 		WetPlantTests: wetPlantTests, Ramps: ramps, Assets: assets,
-		RepeaterHealth: healthProjector, Actuator: actuator,
+		RepeaterHealth: healthProjector, Actuator: actuator, Correlation: correlationEngine,
 		Tests: make(map[string]*repair.TestSession), Incidents: make(map[string]*incident.Incident),
 	}, nil
 }

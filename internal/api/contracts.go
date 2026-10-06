@@ -77,3 +77,29 @@ type IncidentRequest struct {
 	DistanceKM   float64 `json:"distance_km"`
 	RequiresPeer bool    `json:"requires_peer"`
 }
+
+type CorrelationEventRequest struct {
+	ID         string     `json:"id"`
+	Generation uint64     `json:"generation"`
+	Source     string     `json:"source"`
+	AssetID    string     `json:"asset_id"`
+	Kind       string     `json:"kind"`
+	Severity   int        `json:"severity"`
+	DistanceKM *float64   `json:"distance_km"`
+	Confidence float64    `json:"confidence"`
+	Summary    string     `json:"summary"`
+	ObservedAt *time.Time `json:"observed_at"`
+}
+
+type CaseReviewRequest struct {
+	Reason string `json:"reason"`
+}
+
+type CaseConfirmRequest struct {
+	DistanceKM float64 `json:"distance_km"`
+	Note       string  `json:"note"`
+}
+
+type CaseCloseRequest struct {
+	Note string `json:"note"`
+}
